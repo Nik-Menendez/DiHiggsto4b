@@ -55,7 +55,7 @@ def draw_comparison_plots(original, target, variables, original_weights, tag, no
 ## add the column that defines the mHH chi2 (for the AR and VR)
 ## AR, VR : position of the selection
 ## SR, CR : circle and ring
-region_type = 'VR'
+region_type = 'AR'
 
 inputfile  = '../analysis/objects_data_BTagCSV_Run2016_ALL.root'
 outputfile_3b = 'data_3btag_with_weights_%s.root' % region_type

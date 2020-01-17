@@ -11,28 +11,51 @@ import pickle
 
 ## open sig and bkg datasets
 
-input_bkg  = '../background/data_3btag_with_weights_AR.root'
+#input_bkg  = '../background/data_3btag_with_weights_AR.root'
+#input_bkg  = [  '../analysis/objects_QCD*']
+first_bkg   = '../analysis/objects_TT_TuneCUETP8M2T4_13TeV-powheg-pythia8.root'
+input_bkg   = [ '../analysis/objects_QCD_HT700to1000_TuneCUETP8M1_13TeV-madgraphMLM-pythia8.root',
+		'../analysis/objects_QCD_HT1000to1500_TuneCUETP8M1_13TeV-madgraphMLM-pythia8.root',
+		'../analysis/objects_QCD_HT1500to2000_TuneCUETP8M1_13TeV-madgraphMLM-pythia8.root',
+		'../analysis/objects_QCD_HT500to700_TuneCUETP8M1_13TeV-madgraphMLM-pythia8.root',
+		'../analysis/objects_QCD_HT2000toInf_TuneCUETP8M1_13TeV-madgraphMLM-pythia8.root',
+		'../analysis/objects_QCD_HT300to500_TuneCUETP8M1_13TeV-madgraphMLM-pythia8.root',
+		'../analysis/objects_QCD_HT200to300_TuneCUETP8M1_13TeV-madgraphMLM-pythia8.root',
+		'../analysis/objects_QCD_HT100to200_TuneCUETP8M1_13TeV-madgraphMLM-pythia8.root']
 input_sig  = '../analysis/objects_gg_HH_bbbb_SM.root'
+treename = 'bbbbTree'
 
 print "... opening input files"
 
-arrs_bkg  = uproot.open(input_bkg)['bbbbTree']
-arrs_sig  = uproot.open(input_sig)['bbbbTree']
+arrs_bkg = [None]*(len(input_bkg)+1)
+
+print "Opening file: ", input_sig
+arrs_sig  = uproot.open(input_sig)[treename]
+
+para_sig  = arrs_sig.arrays()
+print(para_sig.keys())
+
+print "Opening file: ", first_bkg
+arrs_bkg[0]  = uproot.open(first_bkg)[treename]
 
 ## convert to dataframes
-vars_training = [ 'H1_b1_pt', 'H1_b2_pt', 'H2_b1_pt', 'H2_b2_pt', 'HH_m', 'H1H2_deltaEta', 'H1_costhetaCM']
+vars_training = [ 'H1_b1_pt', 'H1_b2_pt', 'H2_b1_pt', 'H2_b2_pt', 'HH_m', 'H1H2_deltaEta', 'H1_costhetaCM', 'H1_pt', 'H2_pt', 'H1_b1_m', 'H1_b2_m', 'H2_b1_m', 'H2_b2_m', 'H1_b1_eta', 'H1_b2_eta', 'H2_b1_eta', 'H2_b2_eta', 'H1_b1_phi', 'H1_b2_phi', 'H2_b1_phi', 'H2_b2_phi']
 
 # extra variables needed for preselections
 all_vars = vars_training + ['H1_m', 'H2_m', 'n_btag']
 all_vars = list(set(all_vars))
 
-print "... converting to pandas"
-
-# data_bkg = arrs_bkg.pandas.df(all_vars + ['bkg_model_w'], entrystop = 100000)
-# data_sig = arrs_sig.pandas.df(all_vars, entrystop = 100000)
-
-data_bkg = arrs_bkg.pandas.df(all_vars + ['bkg_model_w'])
+data_bkg = arrs_bkg[0].pandas.df(all_vars)
 data_sig = arrs_sig.pandas.df(all_vars)
+
+j=1
+for i in (input_bkg):
+	print "Opening file: ", i
+	arrs_bkg[j] = uproot.open(i)[treename]
+	temp_bkg = arrs_bkg[j].pandas.df(all_vars)
+	data_bkg = data_bkg.append(temp_bkg)
+	j=j+1
+        
 
 print "... preselecting data"
 
@@ -48,8 +71,9 @@ data_bkg = data_bkg[data_bkg['chi'] < 30]
 data_sig = data_sig[data_sig['chi'] < 30]
 
 ## for the signal, add a fake weight column
-data_bkg['train_w'] = data_bkg['bkg_model_w']
-data_bkg.drop('bkg_model_w', axis=1, inplace=True)
+#data_bkg['train_w'] = data_bkg['bkg_model_w']
+#data_bkg.drop('bkg_model_w', axis=1, inplace=True)
+data_bkg['train_w'] = .33
 data_sig['train_w'] = 1
 
 # normalise the sum of weights to unity
@@ -72,9 +96,9 @@ xg_reg = xgb.XGBClassifier(
     colsample_bylevel = 1,
     colsample_bytree  = 1,
     gamma             = 0,
-    learning_rate     = 0.2,
+    learning_rate     = 0.5,
     max_delta_step    = 0,
-    max_depth         = 3,
+    max_depth         = 4,
     min_child_weight  = 0.0001,
     n_estimators      = 1000,
     n_jobs            = 4,
@@ -85,7 +109,7 @@ xg_reg = xgb.XGBClassifier(
     reg_lambda        = 0.05,
     scale_pos_weight  = 1,
     seed              = 123456,
-    silent            = True,
+    verbosity         = 1,
     subsample         = 1,
 )
 
